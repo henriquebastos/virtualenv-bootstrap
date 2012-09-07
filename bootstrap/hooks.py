@@ -1,10 +1,15 @@
 # coding: utf-8
-from os.path import join, dirname, pardir
+from os.path import join, dirname, pardir, abspath
 import subprocess
 
 
-BOOTSTRAP = dirname(__file__)
-ROOT_DIR  = join(BOOTSTRAP, pardir)
+BOOTSTRAP_DIR = abspath(dirname(__file__))
+ROOT = abspath(join(BOOTSTRAP, pardir))
+
+# Path where venv will be created. It's imported by bootstrapX.Y.py
+VIRTUALENV = abspath(join(BOOTSTRAP, pardir))
+
+ACTIVATE  = join(VIRTUALENV, 'bin', 'activate_this.py')
 WITH_VENV = join(BOOTSTRAP, 'with_venv.sh')
 
 
@@ -18,6 +23,6 @@ def with_venv(*args):
 
 
 def after_install(options, home_dir):
-    with_venv('pip', 'install', '-r', join(ROOT_DIR,'requirements.txt'))
+    with_venv('pip', 'install', '-r', join(ROOT, 'requirements.txt'))
     print "Done! Activate your virtualenv: source bin/activate"
 

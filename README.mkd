@@ -45,6 +45,10 @@ You might want to automate some other tasks to make the setup of complex project
 
 For that, just add your own commands to the function `after_install` on your `bootstrap/hook.py`.
 
+## License
+
+Licensed under an [MIT-style permissive license].
+
 > *Bad Note: for now it only supports python 2.6 and 2.7*
 
  [Virtualenv]: http://www.virtualenv.org/en/latest/index.html
@@ -53,4 +57,5 @@ For that, just add your own commands to the function `after_install` on your `bo
  [Virtualenvwrapper]: http://virtualenvwrapper.readthedocs.org
  [requirements.txt]: http://www.pip-installer.org/en/latest/requirements.html
  [Pip]: http://www.pip-installer.org
+ [MIT-style permissive license]: https://github.com/henriquebastos/virtualenv-bootstrap/blob/master/LICENSE.txt
 

@@ -1,5 +1,6 @@
 # coding: utf-8
 from os.path import join, dirname, pardir, abspath
+from shutil import copy
 import subprocess
 
 
@@ -23,6 +24,7 @@ def with_venv(*args):
 
 
 def after_install(options, home_dir):
+    copy(join(BOOTSTRAP, 'postactivate'), VIRTUALENV)
     with_venv('pip', 'install', '-r', join(ROOT, 'requirements.txt'))
     print "Done! Activate your virtualenv: source bin/activate"
 

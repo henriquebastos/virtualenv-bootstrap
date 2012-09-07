@@ -11,7 +11,6 @@ ROOT = abspath(join(BOOTSTRAP, pardir))
 VIRTUALENV = join(BOOTSTRAP, pardir)
 VIRTUALENV_BIN = join(VIRTUALENV, 'bin')
 
-ACTIVATE  = join(VIRTUALENV, 'bin', 'activate_this.py')
 WITH_VENV = join(BOOTSTRAP, 'with_venv.sh')
 
 

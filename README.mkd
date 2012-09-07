@@ -1,23 +1,56 @@
-Virtualenv Bootstrap
-====================
+# Virtualenv Bootstrap
 
-This project serves as a template of example about how to easely bootstrap a virtualenv.
+The best way to have people contributing to your project is to make easy for them to just **checkout** and **run**.
 
-Bootstrap is an underrated or not popular Virtualenv feature. It enables you to setup a
-project development environment within a _single_ command.
+Virtualenv Bootstrap helps your contributor to just clone your repository and setup a development environmet with just one command:
 
-By using it you can reduce your project's contribution barrier, so any new developer would only need to:
+1.  Clone the repository:
 
-1. Clone the repository:
+        git clone [your repo]
 
-```
-git clone [your repo]
-```
 
-2. Bootstrap the development environment:
+2.  Bootstrap the development environment:
 
-```
-python bootstrap/bootstrap.py
-```
+        python bootstrap
 
-That's it! Now just run the tests and hack!
+It works based on built-in [Virtualenv][] capabilities, but it's completely isolated. Perfect even for newcommers who don't still have or understand Python Packaging tools.
+
+
+## How it works?
+
+Virtualenv Bootstrap detects your current python interpreter and:
+
+1. Creates a [Virtualenv][] for your project;
+2. Installs [Distribute][];
+3. Setups a simple [postactivate][] file for those who use [Virtualenvwrapper][];
+4. Searches for your [requirements.txt][] at your repository root and install all your dependencies with [Pip][];
+
+
+## How to add it to your project?
+
+Just copy the `bootstrap` directory to you repository directory.
+
+You can easely do this with the following script:
+
+    curl -L https://github.com/henriquebastos/virtualenv-bootstrap/tarball/master | tar -xzv --strip-components 1 */bootstrap
+
+
+## How to extend it?
+
+You might want to automate some other tasks to make the setup of complex projects really easy, like:
+
+- runing tests
+- detecting presence of services your project needs
+- etc.
+
+For that, just add your own commands to the function `after_install` on your `bootstrap/hook.py`.
+
+> *Bad Note: for now it only supports python 2.6 and 2.7*
+
+ [Virtualenv]: http://www.virtualenv.org/en/latest/index.html
+ [Distribute]: http://packages.python.org/distribute/
+ [postactivate]: http://virtualenvwrapper.readthedocs.org/en/latest/scripts.html#postactivate
+ [Virtualenvwrapper]: http://virtualenvwrapper.readthedocs.org
+ [requirements.txt]: http://www.pip-installer.org/en/latest/requirements.html
+ [Pip]: http://www.pip-installer.org
+

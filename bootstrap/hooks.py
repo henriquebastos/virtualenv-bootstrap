@@ -3,7 +3,7 @@ from os.path import join, dirname, pardir, abspath
 import subprocess
 
 
-BOOTSTRAP_DIR = abspath(dirname(__file__))
+BOOTSTRAP = abspath(dirname(__file__))
 ROOT = abspath(join(BOOTSTRAP, pardir))
 
 # Path where venv will be created. It's imported by bootstrapX.Y.py

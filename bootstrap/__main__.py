@@ -10,4 +10,4 @@ DIR    = dirname(__file__)
 module = "bootstrap{0}.{1}.py".format(*sys.version_info)
 script = abspath(join(DIR, module))
 
-subprocess.call(['python', script])
+subprocess.call([sys.executable, script])

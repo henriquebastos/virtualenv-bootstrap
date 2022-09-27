@@ -4,6 +4,7 @@
 """Create a "virtual" Python installation
 """
 
+
 # If you change the version here, change it in setup.py
 # and docs/conf.py as well.
 __version__ = "1.9.1"  # following best practices
@@ -27,7 +28,7 @@ import struct
 import subprocess
 
 if sys.version_info < (2, 5):
-    print('ERROR: %s' % sys.exc_info()[1])
+    print(f'ERROR: {sys.exc_info()[1]}')
     print('ERROR: this script requires Python 2.5 or greater.')
     sys.exit(101)
 
@@ -46,7 +47,7 @@ except ImportError:
     import configparser as ConfigParser
 
 join = os.path.join
-py_version = 'python%s.%s' % (sys.version_info[0], sys.version_info[1])
+py_version = f'python{sys.version_info[0]}.{sys.version_info[1]}'
 
 is_jython = sys.platform.startswith('java')
 is_pypy = hasattr(sys, 'pypy_version_info')
@@ -96,7 +97,7 @@ elif majver == 3:
                              'functools', 'heapq', 'bisect', 'weakref',
                              'reprlib'])
     if minver >= 2:
-        REQUIRED_FILES[-1] = 'config-%s' % majver
+        REQUIRED_FILES[-1] = f'config-{majver}'
     if minver == 3:
         import sysconfig
         platdir = sysconfig.get_config_var('PLATDIR')
@@ -293,10 +294,9 @@ class Logger(object):
     def fatal(self, msg, *args, **kw):
         self.log(self.FATAL, msg, *args, **kw)
     def log(self, level, msg, *args, **kw):
-        if args:
-            if kw:
-                raise TypeError(
-                    "You may give positional or keyword arguments, not both")
+        if args and kw:
+            raise TypeError(
+                "You may give positional or keyword arguments, not both")
         args = args or kw
         rendered = None
         for consumer_level, consumer in self.consumers:
@@ -307,10 +307,7 @@ class Logger(object):
                     sys.stdout.write('\n')
                     sys.stdout.flush()
                 if rendered is None:
-                    if args:
-                        rendered = msg % args
-                    else:
-                        rendered = msg
+                    rendered = msg % args if args else msg
                     rendered = ' '*self.indent + rendered
                 if hasattr(consumer, 'write'):
                     consumer.write(rendered+'\n')
@@ -335,11 +332,10 @@ class Logger(object):
         if self.stdout_level_matches(self.NOTIFY):
             if not self.in_progress_hanging:
                 # Some message has been printed out since start_progress
-                sys.stdout.write('...' + self.in_progress + msg + '\n')
-                sys.stdout.flush()
+                sys.stdout.write(f'...{self.in_progress}{msg}' + '\n')
             else:
                 sys.stdout.write(msg + '\n')
-                sys.stdout.flush()
+            sys.stdout.flush()
         self.in_progress = None
         self.in_progress_hanging = False
 
@@ -356,10 +352,14 @@ class Logger(object):
 
     def _stdout_level(self):
         """Returns the level that stdout runs at"""
-        for level, consumer in self.consumers:
-            if consumer is sys.stdout:
-                return level
-        return self.FATAL
+        return next(
+            (
+                level
+                for level, consumer in self.consumers
+                if consumer is sys.stdout
+            ),
+            self.FATAL,
+        )
 
     def level_matches(self, level, consumer_level):
         """
@@ -377,24 +377,19 @@ class Logger(object):
         >>> l.level_matches(slice(2, 3), 1)
         False
         """
-        if isinstance(level, slice):
-            start, stop = level.start, level.stop
-            if start is not None and start > consumer_level:
-                return False
-            if stop is not None and stop <= consumer_level:
-                return False
-            return True
-        else:
+        if not isinstance(level, slice):
             return level >= consumer_level
+        start, stop = level.start, level.stop
+        if start is not None and start > consumer_level:
+            return False
+        return stop is None or stop > consumer_level
 
     #@classmethod
-    def level_for_integer(cls, level):
-        levels = cls.LEVELS
+    def level_for_integer(self, level):
+        levels = self.LEVELS
         if level < 0:
             return levels[0]
-        if level >= len(levels):
-            return levels[-1]
-        return levels[level]
+        return levels[-1] if level >= len(levels) else levels[level]
 
     level_for_integer = classmethod(level_for_integer)
 
@@ -424,12 +419,9 @@ def copyfile(src, dest, symlink=True):
         logger.debug('File %s already exists', dest)
         return
     if not os.path.exists(os.path.dirname(dest)):
-        logger.info('Creating parent directories for %s' % os.path.dirname(dest))
+        logger.info(f'Creating parent directories for {os.path.dirname(dest)}')
         os.makedirs(os.path.dirname(dest))
-    if not os.path.islink(src):
-        srcpath = os.path.abspath(src)
-    else:
-        srcpath = os.readlink(src)
+    srcpath = os.readlink(src) if os.path.islink(src) else os.path.abspath(src)
     if symlink and hasattr(os, 'symlink') and not is_win:
         logger.info('Symlinking %s', dest)
         try:
@@ -444,22 +436,19 @@ def copyfile(src, dest, symlink=True):
 def writefile(dest, content, overwrite=True):
     if not os.path.exists(dest):
         logger.info('Writing %s', dest)
-        f = open(dest, 'wb')
-        f.write(content.encode('utf-8'))
-        f.close()
+        with open(dest, 'wb') as f:
+            f.write(content.encode('utf-8'))
         return
     else:
-        f = open(dest, 'rb')
-        c = f.read()
-        f.close()
+        with open(dest, 'rb') as f:
+            c = f.read()
         if c != content.encode("utf-8"):
             if not overwrite:
                 logger.notify('File %s exists with different content; not overwriting', dest)
                 return
             logger.notify('Overwriting %s with new content', dest)
-            f = open(dest, 'wb')
-            f.write(content.encode('utf-8'))
-            f.close()
+            with open(dest, 'wb') as f:
+                f.write(content.encode('utf-8'))
         else:
             logger.info('Content %s already in place', dest)
 
@@ -491,7 +480,7 @@ def _install_req(py_executable, unzip=False, distribute=False,
         search_dirs = file_search_dirs()
 
     if not distribute:
-        egg_path = 'setuptools-*-py%s.egg' % sys.version[:3]
+        egg_path = f'setuptools-*-py{sys.version[:3]}.egg'
         found, egg_path = _find_file(egg_path, search_dirs)
         project_name = 'setuptools'
         bootstrap_script = EZ_SETUP_PY
@@ -499,7 +488,7 @@ def _install_req(py_executable, unzip=False, distribute=False,
     else:
         # Look for a distribute egg (these are not distributed by default,
         # but can be made available by the user)
-        egg_path = 'distribute-*-py%s.egg' % sys.version[:3]
+        egg_path = f'distribute-*-py{sys.version[:3]}.egg'
         found, egg_path = _find_file(egg_path, search_dirs)
         project_name = 'distribute'
         if found:
@@ -533,7 +522,7 @@ def _install_req(py_executable, unzip=False, distribute=False,
 
     old_chdir = os.getcwd()
     if egg_path is not None and os.path.exists(egg_path):
-        logger.info('Using existing %s egg: %s' % (project_name, egg_path))
+        logger.info(f'Using existing {project_name} egg: {egg_path}')
         cmd.append(egg_path)
         if os.environ.get('PYTHONPATH'):
             env['PYTHONPATH'] = egg_path + os.path.pathsep + os.environ['PYTHONPATH']
@@ -541,7 +530,7 @@ def _install_req(py_executable, unzip=False, distribute=False,
             env['PYTHONPATH'] = egg_path
     elif tgz_path is not None and os.path.exists(tgz_path):
         # Found a tgz source dist, let's chdir
-        logger.info('Using existing %s egg: %s' % (project_name, tgz_path))
+        logger.info(f'Using existing {project_name} egg: {tgz_path}')
         os.chdir(os.path.dirname(tgz_path))
         # in this case, we want to be sure that PYTHONPATH is unset (not
         # just empty, really unset), else CPython tries to import the
@@ -557,11 +546,11 @@ def _install_req(py_executable, unzip=False, distribute=False,
                                         search_dirs))
         sys.exit(1)
     elif egg_path:
-        logger.info('No %s egg found; downloading' % project_name)
+        logger.info(f'No {project_name} egg found; downloading')
         cmd.extend(['--always-copy', '-U', project_name])
     else:
-        logger.info('No %s tgz found; downloading' % project_name)
-    logger.start_progress('Installing %s...' % project_name)
+        logger.info(f'No {project_name} tgz found; downloading')
+    logger.start_progress(f'Installing {project_name}...')
     logger.indent += 2
     cwd = None
     if project_name == 'distribute':
@@ -629,10 +618,7 @@ def install_pip(py_executable, search_dirs=None, never_download=False):
     filenames = [(os.path.basename(filename).lower(), i, filename) for i, filename in enumerate(filenames)]
     filenames.sort()
     filenames = [filename for basename, i, filename in filenames]
-    if not filenames:
-        filename = 'pip'
-    else:
-        filename = filenames[-1]
+    filename = filenames[-1] if filenames else 'pip'
     easy_install_script = 'easy_install'
     if is_win:
         easy_install_script = 'easy_install-script.py'
@@ -658,12 +644,15 @@ def install_pip(py_executable, search_dirs=None, never_download=False):
             sys.exit(1)
         logger.info('Installing pip from network...')
     else:
-        logger.info('Installing existing %s distribution: %s' % (
-                os.path.basename(filename), filename))
+        logger.info(
+            f'Installing existing {os.path.basename(filename)} distribution: {filename}'
+        )
+
     logger.start_progress('Installing pip...')
     logger.indent += 2
     def _filter_setup(line):
         return filter_ez_setup(line, 'pip')
+
     try:
         call_subprocess(cmd, show_stdout=False,
                         filter_stdout=_filter_setup)
@@ -675,20 +664,49 @@ def filter_ez_setup(line, project_name='setuptools'):
     if not line.strip():
         return Logger.DEBUG
     if project_name == 'distribute':
-        for prefix in ('Extracting', 'Now working', 'Installing', 'Before',
-                       'Scanning', 'Setuptools', 'Egg', 'Already',
-                       'running', 'writing', 'reading', 'installing',
-                       'creating', 'copying', 'byte-compiling', 'removing',
-                       'Processing'):
-            if line.startswith(prefix):
-                return Logger.DEBUG
-        return Logger.DEBUG
-    for prefix in ['Reading ', 'Best match', 'Processing setuptools',
-                   'Copying setuptools', 'Adding setuptools',
-                   'Installing ', 'Installed ']:
-        if line.startswith(prefix):
-            return Logger.DEBUG
-    return Logger.INFO
+        return next(
+            (
+                Logger.DEBUG
+                for prefix in (
+                    'Extracting',
+                    'Now working',
+                    'Installing',
+                    'Before',
+                    'Scanning',
+                    'Setuptools',
+                    'Egg',
+                    'Already',
+                    'running',
+                    'writing',
+                    'reading',
+                    'installing',
+                    'creating',
+                    'copying',
+                    'byte-compiling',
+                    'removing',
+                    'Processing',
+                )
+                if line.startswith(prefix)
+            ),
+            Logger.DEBUG,
+        )
+
+    return next(
+        (
+            Logger.DEBUG
+            for prefix in [
+                'Reading ',
+                'Best match',
+                'Processing setuptools',
+                'Copying setuptools',
+                'Adding setuptools',
+                'Installing ',
+                'Installed ',
+            ]
+            if line.startswith(prefix)
+        ),
+        Logger.INFO,
+    )
 
 
 class UpdatingDefaultsHelpFormatter(optparse.IndentedHelpFormatter):
@@ -726,17 +744,12 @@ class ConfigOptionParser(optparse.OptionParser):
         the environ. Does a little special handling for certain types of
         options (lists).
         """
-        # Then go and look for the other sources of configuration:
-        config = {}
-        # 1. config files
-        config.update(dict(self.get_config_section('virtualenv')))
-        # 2. environmental variables
-        config.update(dict(self.get_environ_vars()))
+        config = dict(self.get_config_section('virtualenv')) | self.get_environ_vars()
         # Then set the options with those values
         for key, val in config.items():
             key = key.replace('_', '-')
             if not key.startswith('--'):
-                key = '--%s' % key  # only prefer long opts
+                key = f'--{key}'
             option = self.get_option(key)
             if option is not None:
                 # ignore empty values
@@ -755,7 +768,7 @@ class ConfigOptionParser(optparse.OptionParser):
                     val = option.convert_value(key, val)
                 except optparse.OptionValueError:
                     e = sys.exc_info()[1]
-                    print("An error occured during configuration: %s" % e)
+                    print(f"An error occured during configuration: {e}")
                     sys.exit(3)
                 defaults[option.dest] = val
         return defaults
@@ -764,9 +777,7 @@ class ConfigOptionParser(optparse.OptionParser):
         """
         Get a section of a configuration
         """
-        if self.config.has_section(name):
-            return self.config.items(name)
-        return []
+        return self.config.items(name) if self.config.has_section(name) else []
 
     def get_environ_vars(self, prefix='VIRTUALENV_'):
         """
@@ -924,9 +935,9 @@ def main():
         env = os.environ.copy()
         interpreter = resolve_interpreter(options.python)
         if interpreter == sys.executable:
-            logger.warn('Already using interpreter %s' % interpreter)
+            logger.warn(f'Already using interpreter {interpreter}')
         else:
-            logger.notify('Running virtualenv with interpreter %s' % interpreter)
+            logger.notify(f'Running virtualenv with interpreter {interpreter}')
             env['VIRTUALENV_INTERPRETER_RUNNING'] = 'true'
             file = __file__
             if file.endswith('.pyc'):
@@ -949,8 +960,7 @@ def main():
         parser.print_help()
         sys.exit(2)
     if len(args) > 1:
-        print('There must be only one argument: DEST_DIR (you gave %s)' % (
-            ' '.join(args)))
+        print(f"There must be only one argument: DEST_DIR (you gave {' '.join(args)})")
         parser.print_help()
         sys.exit(2)
 
@@ -989,7 +999,7 @@ def call_subprocess(cmd, show_stdout=True,
     cmd_parts = []
     for part in cmd:
         if len(part) > 45:
-            part = part[:20]+"..."+part[-20:]
+            part = f"{part[:20]}...{part[-20:]}"
         if ' ' in part or '\n' in part or '"' in part or "'" in part:
             part = '"%s"' % part.replace('"', '\\"')
         if hasattr(part, 'decode'):
@@ -999,28 +1009,21 @@ def call_subprocess(cmd, show_stdout=True,
                 part = part.decode(sys.getfilesystemencoding())
         cmd_parts.append(part)
     cmd_desc = ' '.join(cmd_parts)
-    if show_stdout:
-        stdout = None
-    else:
-        stdout = subprocess.PIPE
-    logger.debug("Running command %s" % cmd_desc)
-    if extra_env or remove_from_env:
-        env = os.environ.copy()
-        if extra_env:
-            env.update(extra_env)
-        if remove_from_env:
-            for varname in remove_from_env:
-                env.pop(varname, None)
-    else:
-        env = None
+    stdout = None if show_stdout else subprocess.PIPE
+    logger.debug(f"Running command {cmd_desc}")
+    env = os.environ.copy() if extra_env or remove_from_env else None
+    if extra_env:
+        env.update(extra_env)
+    if remove_from_env:
+        for varname in remove_from_env:
+            env.pop(varname, None)
     try:
         proc = subprocess.Popen(
             cmd, stderr=subprocess.STDOUT, stdin=None, stdout=stdout,
             cwd=cwd, env=env)
     except Exception:
         e = sys.exc_info()[1]
-        logger.fatal(
-            "Error %s while executing command %s" % (e, cmd_desc))
+        logger.fatal(f"Error {e} while executing command {cmd_desc}")
         raise
     all_output = []
     if stdout is not None:
@@ -1052,15 +1055,11 @@ def call_subprocess(cmd, show_stdout=True,
     if proc.returncode:
         if raise_on_returncode:
             if all_output:
-                logger.notify('Complete output from command %s:' % cmd_desc)
+                logger.notify(f'Complete output from command {cmd_desc}:')
                 logger.notify('\n'.join(all_output) + '\n----------------------------------------')
-            raise OSError(
-                "Command %s failed with error code %s"
-                % (cmd_desc, proc.returncode))
+            raise OSError(f"Command {cmd_desc} failed with error code {proc.returncode}")
         else:
-            logger.warn(
-                "Command %s had error code %s"
-                % (cmd_desc, proc.returncode))
+            logger.warn(f"Command {cmd_desc} had error code {proc.returncode}")
 
 
 def create_environment(home_dir, site_packages=False, clear=False,
@@ -1183,8 +1182,9 @@ def change_prefix(filename, dst_prefix):
                 assert relpath[0] == os.sep
                 relpath = relpath[1:]
             return join(dst_prefix, relpath)
-    assert False, "Filename %s does not start with any of these prefixes: %s" % \
-        (filename, prefixes)
+    assert (
+        False
+    ), f"Filename {filename} does not start with any of these prefixes: {prefixes}"
 
 def copy_required_modules(dst_prefix):
     import imp
@@ -1200,21 +1200,32 @@ def copy_required_modules(dst_prefix):
     try:
         for modname in REQUIRED_MODULES:
             if modname in sys.builtin_module_names:
-                logger.info("Ignoring built-in bootstrap module: %s" % modname)
+                logger.info(f"Ignoring built-in bootstrap module: {modname}")
                 continue
             try:
                 f, filename, _ = imp.find_module(modname)
             except ImportError:
-                logger.info("Cannot import bootstrap module: %s" % modname)
+                logger.info(f"Cannot import bootstrap module: {modname}")
             else:
                 if f is not None:
                     f.close()
                 # special-case custom readline.so on OS X, but not for pypy:
-                if modname == 'readline' and sys.platform == 'darwin' and not (
-                        is_pypy or filename.endswith(join('lib-dynload', 'readline.so'))):
-                    dst_filename = join(dst_prefix, 'lib', 'python%s' % sys.version[:3], 'readline.so')
-                else:
-                    dst_filename = change_prefix(filename, dst_prefix)
+                dst_filename = (
+                    join(
+                        dst_prefix,
+                        'lib',
+                        f'python{sys.version[:3]}',
+                        'readline.so',
+                    )
+                    if modname == 'readline'
+                    and sys.platform == 'darwin'
+                    and not is_pypy
+                    and not filename.endswith(
+                        join('lib-dynload', 'readline.so')
+                    )
+                    else change_prefix(filename, dst_prefix)
+                )
+
                 copyfile(filename, dst_filename)
                 if filename.endswith('.pyc'):
                     pyfile = filename[:-1]
